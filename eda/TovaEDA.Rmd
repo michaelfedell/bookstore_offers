@@ -1,19 +1,21 @@
 ---
 title: "PA Project Explore"
-output: pdf_document
+output:
+html_document:
+df_print: paged
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message= FALSE)
+knitr::opts_chunk$set(echo = T, message= FALSE)
 ```
 
 ```{r}
 library(tidyverse)
 library(readr)
-orders <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/ordersall.csv")
-test <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/booktest.csv")
-book <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/book.csv")
-train <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/booktrain.csv")
+orders <- read_csv("../data/ordersall.csv")
+test <- read_csv("../data/booktest.csv")
+book <- read_csv("../data/book.csv")
+train <- read_csv("../data/booktrain.csv")
 ```
 
 
@@ -105,8 +107,4 @@ plot(new_book$amount, new_book$frequency)
 
 ```{r}
 orders
-```
-
-
-```{r ref.label=knitr::all_labels(), echo = T, eval = F}
 ```
