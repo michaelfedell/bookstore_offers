@@ -1,0 +1,110 @@
+---
+title: "PA Project Explore"
+output:
+html_document:
+df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, message= FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(readr)
+orders <- read_csv("../data/ordersall.csv")
+test <- read_csv("../data/booktest.csv")
+book <- read_csv("../data/book.csv")
+train <- read_csv("../data/booktrain.csv")
+```
+
+
+
+```{r}
+new_book <- book[!is.na(book$logtargamt),]
+new_book <- subset(new_book, select = c(id, logtargamt, recency, frequency, amount, tof))
+new_book$after <- ifelse(new_book$logtargamt > 0, 1, 0)
+```
+
+
+```{r}
+new_book$afint <- new_book$amount * new_book$frequency
+new_book$rfint <- new_book$recency * new_book$frequency
+fit = glm(after ~ amount + recency + frequency + tof, family = binomial, data=new_book)
+fit2 = glm(after ~ amount + recency + frequency + tof +afint, family = binomial, data=new_book)
+fit3 = glm(after ~ amount + recency + frequency + tof + rfint, family = binomial, data=new_book)
+fit4 = glm(after ~ amount + recency + frequency + tof + afint + rfint, family = binomial, data=new_book)
+summary(fit)
+summary(fit2)
+summary(fit3)
+summary(fit4)
+```
+
+
+
+```{r}
+new_book$ordersPer <-  new_book$frequency / new_book$tof
+new_book$amountPer <- new_book$amount/ new_book$tof
+new_book
+fit5 = glm (after ~ amount + recency + frequency + tof + ordersPer + amountPer, family = binomial, data=new_book)
+summary(fit5)
+```
+
+
+```{r}
+merged.data1<- merge(new_book, train, by="id")
+merged.data1
+```
+
+
+```{r}
+fit6 = glm (after ~ recency + frequency  + ordersPer , family = binomial, data=new_book)
+summary(fit6)
+```
+
+
+```{r}
+merged <- merge(book, test, by="id")
+merged <-subset(merged, select = c(id, logtargamt.x, recency, frequency, amount, tof))
+merged$ordersPer <-  merged$frequency / merged$tof
+merged$amountPer <- merged$amount/ merged$tof
+```
+
+
+
+#train data for the regression
+#test data for predictions
+
+
+```{r}
+myglm <- glm(after~ recency + frequency + ordersPer , data=merged.data1, family = "binomial")
+score <- predict(myglm, newdata = merged, type = "response")
+length(score)
+merged.data1
+```
+# ^ which is the length of the test data. 
+
+
+
+#can we somehow group amounts by year so we can see if only more recent amounts/orders are influential compared to old ones? Or perhaps they're more likely to buy during promotion if they spent more money in the past and havent been spending a lot recently. Connect the orders csv with books. 
+
+```{r}
+resptraining <-merged.data1[ which (merged.data1$logtargamt.x>0), ]
+resptraining
+```
+
+```{r}
+targ <- lm(logtargamt.x ~  frequency + amount + amountPer, data=resptraining)
+summary(targ)
+```
+
+
+```{r}
+plot(new_book$amount, new_book$frequency)
+```
+
+
+
+```{r}
+orders
+```
