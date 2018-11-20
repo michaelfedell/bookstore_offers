@@ -30,4 +30,4 @@ book.train.merge <- rename(book.train.merge, logtargamt = logtargamt.x)
 book.train.full <- orders %>% 
   group_by(id) %>% 
   summarise(avgNetOrder = mean(net)) %>%
-  merge(book.train.merge, by = 'id')
+  merge(book.train.merge, by = 'id', all.y = T)
