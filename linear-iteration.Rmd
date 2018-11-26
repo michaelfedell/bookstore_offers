@@ -58,11 +58,11 @@ Stepwise regression with leaps
 book.empty = lm(logtargamt ~ 1, book.train.responders)
 summary(book.empty)
 step(book.empty, direction="forward", scope = 
-       ~ amount + frequency + recency + tof + I(amount * frequency) + I(amount / tof))
+       ~ amount + frequency + recency + tof + I(amount * frequency) + I(amount / (tof + 0.0001)))
 ```
 
 ```{r}
-subset <- book.train.responders %>% select(logtargamt, amount, recency, frequency, tof) %>% mutate(af = amount * frequency, ap = amount / tof)
+subset <- book.train.responders %>% select(logtargamt, amount, recency, frequency, tof) %>% mutate(af = amount * frequency, ap = amount / (tof + 0.0001))
 
 book.best <- bestglm(subset, IC="AIC")
 book.best
