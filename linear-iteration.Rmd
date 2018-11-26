@@ -21,6 +21,7 @@ baseline <- lm(logtargamt ~ amount + avgNetOrder + recency + frequency + tof,
 plot(baseline, which = 4)
 summary(baseline)
 book.train.responders <- book.train.responders[-c(75, 137, 299),]
+book.train.responders <- filter(book.train.responders, amount < 1000)
 baseline <- lm(logtargamt ~ amount + avgNetOrder + recency + frequency + tof,
                book.train.responders)
 plot(baseline, which = 4)
