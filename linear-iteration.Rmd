@@ -48,7 +48,7 @@ summary(interaction2)
 
 
 ```{r}
-interaction3 <- lm(logtargamt ~ amount + frequency + I(amount * frequency) + I(amount / tof),
+interaction3 <- lm(logtargamt ~ amount + frequency + I(amount * frequency) + I(amount / (tof)),
                   book.train.responders)
 summary(interaction3)
 ```
@@ -84,6 +84,11 @@ best <- lm(formula = logtargamt ~ amount +  frequency + ap, data = subset)
 summary(best)
 ```
 
+```{r}
+best2 <- lm(logtargamt ~ amount + frequency + I(amount * frequency) +
+              I(amount / (log(tof))), book.train.responders)
+summary(best2)
+```
 
 
 #number 4 on project -- mult logistic model w linear to predict test and calculate targamt by doing expo

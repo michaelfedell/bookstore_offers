@@ -7,7 +7,7 @@ book.train <- read.csv('./data/booktrain.csv')
 orders <- read.csv('./data/ordersall.csv', stringsAsFactors = F)
 
 # Add respond column to indicate if a customer responded to promotion
-book$respond <- ifelse(book$logtargamt > 0, 1, 0)
+book$respond <- ifelse((book$logtargamt > 0) && (book$tof > 0), 1, 0)
 
 # Drop empty malformat column
 book.train$X <- NULL
