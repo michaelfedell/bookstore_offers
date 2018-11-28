@@ -1,0 +1,197 @@
+---
+title: "logisticPA"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readr)
+orders <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/ordersall.csv")
+test <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/booktest.csv")
+book <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/book.csv")
+train <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/booktrain.csv")
+```
+
+
+#### BITCH THAT IS ITTTTTTTTTTTTT
+```{r}
+new_book[which(new_book$tof==0), ]
+```
+
+#new_book contains logtargamt that is not NA -- therefore newbook is only 8,311 -- length of TRAIN
+```{r}
+new_book <- book[!is.na(book$logtargamt),]
+new_book <- subset(new_book, select = c(id, logtargamt, recency, frequency, amount, tof))
+new_book$after <- ifelse(new_book$logtargamt > 0, 1, 0)
+new_book 
+```
+
+
+#create two new interaction variables for new_book
+```{r}
+new_book$ordersPer <-  new_book$frequency / new_book$tof
+new_book$amountPer <- new_book$amount/ new_book$tof
+```
+
+#merging "new_book" data with train data
+```{r}
+mergedTRAIN<- merge(new_book, train, by="id")
+mergedTRAIN
+```
+
+#merged data of book and TEST by id, created dummy variables
+```{r}
+mergedTEST <- merge(book, test, by="id")
+mergedTEST <-subset(mergedTEST, select = c(id, logtargamt.x, recency, frequency, amount, tof))
+mergedTEST$ordersPer <-  mergedTEST$frequency / mergedTEST$tof
+mergedTEST$amountPer <- mergedTEST$amount/ mergedTEST$tof
+mergedTEST
+```
+
+
+###Logistic regression from exploratory
+```{r}
+myglm <- glm(after~ recency + frequency + ordersPer , data=mergedTRAIN, family = "binomial")
+score <- predict(myglm, newdata = mergedTEST, type = "response")
+length(score)
+summary(myglm)
+test$prob <- score
+try2 <- test[ which(test$logtargamt>0), ]
+try3 <- test[ which(test$logtargamt==0), ]
+try2 <- try2 [!is.na(try2$prob),]
+try3 <- try3 [!is.na(try3$prob),]
+mean(try2$prob)
+mean(try3$prob)
+```
+
+#try order date grouping
+```{r}
+orders1 <- orders[which(orders$qty<1000), ]
+orders1$returned <- ifelse(orders1$price== 0, 1, 0)
+mergedOrdersBook <- merge(new_book, orders1, by="id")
+startDate <- "01-Aug-14"
+ndate1 <- as.Date(startDate, "%d-%B-%y")
+mergedOrdersBook$orddate <- as.Date(mergedOrdersBook$orddate , "%d-%B-%y")
+mergedOrdersBook$dateDiff <- as.numeric(difftime(ndate1, mergedOrdersBook$orddate), units="days")
+mergedOrdersBook$oneMonth <- ifelse(mergedOrdersBook$dateDiff < 31 , 1, 0)
+mergedOrdersBook$threeMonth <- ifelse(mergedOrdersBook$dateDiff < 93 & mergedOrdersBook$dateDiff >31, 1, 0)
+mergedOrdersBook$sixMonth <- ifelse(mergedOrdersBook$dateDiff > 93 & mergedOrdersBook$dateDiff <183 , 1, 0)
+mergedOrdersBook$oneYr <- ifelse(mergedOrdersBook$dateDiff > 182 & mergedOrdersBook$dateDiff < 365 , 1, 0)
+mergedOrdersBook$twoYr <- ifelse(mergedOrdersBook$dateDiff > 365 & mergedOrdersBook$dateDiff < 730 , 1, 0)
+mergedOrdersBook$pastTwo <-  ifelse(mergedOrdersBook$dateDiff > 730 , 1, 0)
+```
+
+
+#dropping orddate, ordnumber, and category, not interested for regression
+```{r}
+mergedOrdersBook <- mergedOrdersBook[, -c(10,11,12)]
+mergedOrdersBook
+df <- aggregate(mergedOrdersBook$qty, by=list(id=mergedOrdersBook$id), FUN=sum)
+```
+
+#merge df so we have sum of quantity by ID
+```{r}
+df
+mergedOrdersBook1 <- merge(mergedOrdersBook, df, by="id")
+```
+
+
+```{r}
+result <- mergedOrdersBook1 %>%
+  group_by(id) %>%
+  summarise_all(funs(max))
+result
+```
+
+```{r}
+result$logtargamt <- as.double(result$logtargamt)
+cor(result)
+```
+#pastTwo and datediff have high correlation - 0.84740550
+#tof and pastTwo high - 0.847405504
+#frequency and amount both have high corr with sum(qty) (x) -- 0.81012673(freq)   0.81012673(amt)
+#amount and frequency -- 0.72227683
+
+ 
+ 
+ 
+ 
+ 
+#AIC  = 2339.4  for full
+#AIC =  2337.4   rid of "returned"
+#AIC =  2335.4  rid of "qty"
+#AIC =  2333.5   rid of "x"
+#AIC =  2331.8   rid of "oneYr"
+#AIC =  2330.3   rid of "price"
+#AIC =  2329.7  rid of "six month"
+#AIC =  2329.3   rid of "pastTwo"
+#AIC =  2329.2   rid of "ordersPer"
+
+#qty in orders  -- final logistic regression
+```{r}
+myglm2 <- glm(after ~ recency + frequency + amount + tof  + amountPer + oneMonth + threeMonth  +  twoYr, data=result, family = "binomial")
+summary(myglm2)
+```
+
+
+```{r}
+library(car)
+vif(myglm2)
+```
+
+```{r}
+myglmSophie <- glm(after ~ recency + frequency + tof , data=result, family = "binomial")
+summary(myglmSophie)
+```
+
+
+```{r}
+mergedTEST2 <- merge(book, orders1, by="id")
+mergedTEST2 <-subset(mergedTEST2, select = c(id, logtargamt, recency, frequency, amount, tof, orddate, ordnum, category, qty, price, returned))
+mergedTEST2
+mergedTEST2$orddate <- as.Date(mergedTEST2$orddate , "%d-%B-%y")
+mergedTEST2$dateDiff <- as.numeric(difftime(ndate1, mergedTEST2$orddate), units="days")
+mergedTEST2$oneMonth <- ifelse(mergedTEST2$dateDiff < 31 , 1, 0)
+mergedTEST2$threeMonth <- ifelse(mergedTEST2$dateDiff < 93 & mergedTEST2$dateDiff >31, 1, 0)
+mergedTEST2$sixMonth <- ifelse(mergedTEST2$dateDiff > 93 & mergedTEST2$dateDiff <183 , 1, 0)
+mergedTEST2$oneYr <- ifelse(mergedTEST2$dateDiff > 182 & mergedTEST2$dateDiff < 365 , 1, 0)
+mergedTEST2$twoYr <- ifelse(mergedTEST2$dateDiff > 365 & mergedTEST2$dateDiff < 730 , 1, 0)
+mergedTEST2$pastTwo <-  ifelse(mergedTEST2$dateDiff > 730 , 1, 0)
+mergedTEST2 <- mergedTEST2[, -c(7,8,9)]
+mergedTEST2
+mergedTEST3 <- merge(mergedTEST2, test, by="id")
+mergedTEST3
+mergedTEST3 <- subset(mergedTEST3, select = c(id, logtargamt.x, recency, frequency, amount, tof, qty, price, returned, oneMonth, threeMonth, sixMonth, oneYr, twoYr, pastTwo))
+df <- aggregate(mergedTEST3$qty, by=list(id=mergedTEST3$id), FUN=sum)
+mergedTEST3 <- merge(mergedTEST3, df, by="id")
+resultTEST3 <- mergedTEST3 %>%
+  group_by(id) %>%
+  summarise_all(funs(max))
+resultTEST3
+```
+
+```{r}
+resultTEST3$ordersPer <-  resultTEST3$frequency / resultTEST3$tof
+resultTEST3$amountPer <- resultTEST3$amount/ resultTEST3$tof
+```
+
+
+
+```{r}
+score2 <- predict(myglm2, newdata = resultTEST3, type = "response")
+length(score2)
+test$prob2 <- score2
+try2 <- test[ which(test$logtargamt>0), ]
+try3 <- test[ which(test$logtargamt==0), ]
+try2 <- try2 [!is.na(try2$prob),]
+try3 <- try3 [!is.na(try3$prob),]
+mean(try2$prob)
+mean(try3$prob)
+```
+
+
+
