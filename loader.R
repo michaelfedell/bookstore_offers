@@ -10,7 +10,7 @@ orders <- read.csv('./data/ordersall.csv', stringsAsFactors = F)
 book <- book %>% mutate(
   ordersPer = frequency / tof, 
   amountPer = amount / tof,
-  respond = ifelse(book$logtargamt > 0, 1, 0)
+  respond = as.factor(ifelse(book$logtargamt > 0, 1, 0))
 )
 
 # Orders with orddate as Date and net as total price of order
