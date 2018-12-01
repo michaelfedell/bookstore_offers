@@ -6,33 +6,19 @@ test <- read.csv('./data/booktest.csv')
 train <- read.csv('./data/booktrain.csv')
 orders <- read.csv('./data/ordersall.csv', stringsAsFactors = F)
 
-# Add respond column to indicate if a customer responded to promotion
-book$respond <- ifelse(book$logtargamt > 0, 1, 0)
-
-# Drop empty malformat column
-train$X <- NULL
-test$X <- NULL
+# Add respond column and interaction terms
+book <- book %>% mutate(
+  ordersPer = frequency / tof, 
+  amountPer = amount / tof,
+  respond = ifelse(book$logtargamt > 0, 1, 0)
+)
 
 # Orders with orddate as Date and net as total price of order
 orders$orddate <- lubridate::dmy(orders$orddate)
 orders$net <- orders$qty * orders$price
+orders <- orders %>% mutate(returned = ifelse(price == 0, 1, 0))
 
-# Orders of customers who respond to promotion
-orders.responders <- train %>% 
-  filter(logtargamt > 0) %>%
-  merge(orders, by = 'id')
-
-# All information about the customers in training set
-train.merge <- merge(train, book, by = 'id')
-train.merge$logtargamt.y <- NULL
-train.merge <- rename(train.merge, logtargamt = logtargamt.x)
-
-# All information about customers in the test set
-test.merge <- merge(test, book, by = 'id')
-test.merge$logtargamt.y <- NULL
-test.merge <- rename(test.merge, logtargamt = logtargamt.x)
-
-# 
+# Add date buckets to orders
 startDate <- as.Date('01-Aug-14', '%d-%B-%y')
 orders <- orders %>% mutate(
   dateDiff = difftime(startDate, orddate),
@@ -43,14 +29,31 @@ orders <- orders %>% mutate(
   overYear = ifelse(dateDiff > 365, 1, 0)
 )
 
-# All information about customers in training set with addition of avgNetOrder
-train.full <- orders %>% 
+# Add avgNetOrder feature
+book <- orders %>% 
   group_by(id) %>% 
-  summarise(avgNetOrder = mean(net)) %>%
-  merge(train.merge, by = 'id', all.y = T)
+  summarise(avgNetOrder = mean(net),
+            sumQty = sum(qty),
+            maxPrice = max(price),
+            maxNet = max(net),
+            returned = max(returned),
+            oneMonth = max(oneMonth),
+            threeMonth = max(threeMonth),
+            sixMonth = max(sixMonth),
+            oneYear = max(oneYear),
+            overYear = max(overYear)) %>%
+  merge(book, by = 'id', all.y = T)
 
-# All information about customers in test set with addition of avgNetOrder
-test.full <- orders %>% 
-  group_by(id) %>% 
-  summarise(avgNetOrder = mean(net)) %>%
-  merge(test.merge, by = 'id', all.y = T)
+# Drop empty malformat column
+train$X <- NULL
+test$X <- NULL
+
+# All information about the customers in training set
+train.full <- merge(train, book, by = 'id')
+train.full$logtargamt.y <- NULL
+train.full <- rename(train.full, logtargamt = logtargamt.x)
+
+# All information about customers in the test set
+test.full <- merge(test, book, by = 'id')
+test.full$logtargamt.y <- NULL
+test.full <- rename(test.full, logtargamt = logtargamt.x)
