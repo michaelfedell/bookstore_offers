@@ -1,0 +1,96 @@
+---
+title: "linear-iterations"
+author: "Michael Fedell"
+date: "11/19/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(leaps)
+library(bestglm)
+source('./loader.R')
+```
+
+
+```{r}
+train.responders <- train.full %>% 
+  filter(train.full$respond == 1, train.full$tof > 0)
+baseline <- lm(logtargamt ~ amount + avgNetOrder + recency + frequency + tof,
+               train.responders)
+plot(baseline, which = 4)
+summary(baseline)
+train.responders <- train.responders[-c(75, 137, 299),]
+train.responders <- filter(train.responders, amount < 1000)
+baseline <- lm(logtargamt ~ amount + avgNetOrder + recency + frequency + tof,
+               train.responders)
+plot(baseline, which = 4)
+summary(baseline)
+```
+
+```{r}
+for (i in names(train.responders[2:6])) {
+  hist(train.responders[[i]], xlab = i)
+}
+```
+
+```{r}
+interaction <- lm(logtargamt ~ amount + avgNetOrder + recency + frequency + tof + I(amount * frequency) + I(recency * frequency),
+                  train.responders)
+summary(interaction)
+```
+
+```{r}
+interaction2 <- lm(logtargamt ~ amount + frequency + tof + I(amount * frequency) + I(frequency / tof) + I(amount / tof),
+                  train.responders)
+summary(interaction2)
+```
+
+
+```{r}
+interaction3 <- lm(logtargamt ~ amount + frequency + I(amount * frequency) + I(amount / (tof)),
+                  train.responders)
+summary(interaction3)
+```
+
+Stepwise regression with leaps
+```{r}
+book.empty = lm(logtargamt ~ 1, train.responders)
+summary(book.empty)
+step(book.empty, direction="forward", scope = 
+       ~ amount + frequency + recency + tof + I(amount * frequency) + I(amount / (tof + 0.0001)))
+```
+
+```{r}
+subset <- train.responders %>% select(logtargamt, amount, recency, frequency, tof) %>% mutate(af = amount * frequency, ap = amount / (tof + 0.0001))
+
+book.best <- bestglm(subset, IC="AIC")
+book.best
+book.best$BestModels
+
+fit1 = lm(logtargamt ~ ., subset)
+summary(fit1)
+step(fit1,direction="backward")
+step(fit1,direction="both")
+```
+
+```{r}
+best <- lm(formula = logtargamt ~ amount + frequency + ap, data = subset)
+summary(best)
+```
+
+```{r}
+best <- lm(formula = logtargamt ~ amount +  frequency + ap, data = subset)
+summary(best)
+```
+
+```{r}
+best2 <- lm(logtargamt ~ amount + frequency + I(amount * frequency) +
+              I(amount / (log(tof))), train.responders)
+summary(best2)
+```
+
+
+#number 4 on project -- mult logistic model w linear to predict test and calculate targamt by doing expo
+

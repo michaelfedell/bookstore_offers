@@ -1,0 +1,237 @@
+---
+title: "PA Project Explore"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readr)
+orders <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/ordersall.csv")
+test <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/booktest.csv")
+book <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/book.csv")
+train <- read_csv("/Users/tovasimonson/Documents/MSIA/Fall2018/PA/Project/booktrain.csv")
+```
+
+
+##new book here becomes of length 8,311 because we got rid of NA's, so it's the length of the training set (test set shows as NA)
+##added after variable to indicate if they purchased after the promotion
+```{r}
+new_book <- book[!is.na(book$logtargamt),]
+new_book <- subset(new_book, select = c(id, logtargamt, recency, frequency, amount, tof))
+new_book$after <- ifelse(new_book$logtargamt > 0, 1, 0)
+new_book$ordersPer <-  new_book$frequency / new_book$tof
+new_book$amountPer <- new_book$amount/ new_book$tof
+```
+
+
+## respond training which is the training set and book
+```{r}
+mergedTRAIN<- merge(new_book, train, by="id")
+resptraining <-mergedTRAIN[ which (mergedTRAIN$logtargamt.x>0), ]
+resptraining
+```
+
+##very basic regression - R squared is 0.2465 - only on responding book set data
+```{r}
+resptraining
+targ <- lm(logtargamt.x ~  frequency + amount + amountPer, data=resptraining)
+summary(targ)
+```
+
+
+## found that the following IDs have orders over 1,000: 14158205, 8192553, 5405602, 5900190,8070857
+#Code used to explore: 
+result2 <- orders %>%
+  group_by(id, orddate) %>%
+  summarise(sum(qty))result2[ which (result2$'sum(qty)'>1000), ]
+  subset( result2, subset= result2$id %in% c(14158205, 8192553, 5405602,8070857,5900190))
+## 5405602	24-Jan-12
+## 5900190	19-May-14
+## 8192553	10-Aug-13
+## 14158205	16-Nov-13
+## 8070857	17-Jan-10
+
+
+#creating dummy variables for order dates within specific time frames 
+```{r}
+orders1 <- orders[which(orders$qty<1000), ]
+orders1$returned <- ifelse(orders1$price== 0, 1, 0)
+
+new_book[is.na(new_book)] <- 0
+mergedOrdersBook <- merge(new_book, orders1, by="id")
+
+startDate <- "01-Aug-14"
+ndate1 <- as.Date(startDate, "%d-%B-%y")
+mergedOrdersBook$orddate <- as.Date(mergedOrdersBook$orddate , "%d-%B-%y")
+mergedOrdersBook$dateDiff <- as.numeric(difftime(ndate1, mergedOrdersBook$orddate), units="days")
+mergedOrdersBook$oneMonth <- ifelse(mergedOrdersBook$dateDiff < 31 , 1, 0)
+mergedOrdersBook$threeMonth <- ifelse(mergedOrdersBook$dateDiff < 63 & mergedOrdersBook$dateDiff >31, 1, 0)
+mergedOrdersBook$sixMonth <- ifelse(mergedOrdersBook$dateDiff > 63 & mergedOrdersBook$dateDiff <183 , 1, 0)
+mergedOrdersBook$oneYr <- ifelse(mergedOrdersBook$dateDiff > 182 & mergedOrdersBook$dateDiff < 365 , 1, 0)
+mergedOrdersBook$twoYr <- ifelse(mergedOrdersBook$dateDiff > 365 & mergedOrdersBook$dateDiff < 730 , 1, 0)
+mergedOrdersBook$pastTwo <-  ifelse(mergedOrdersBook$dateDiff > 730 , 1, 0)
+mergedOrdersBook
+```
+
+
+##sum the quantity as predictor
+## grouping by id and finding max for the mergedOrdersBook set - 8,224 obs
+## used max so it takes the dummy variables as they are instead of summing/mean
+## responding of this data frame is only 280 before taking care of outliers
+```{r}
+df <- aggregate(mergedOrdersBook$qty, by=list(id=mergedOrdersBook$id), FUN=sum)
+mergedOrdersBook <- merge(mergedOrdersBook, df, by="id")
+result <- mergedOrdersBook %>%
+  group_by(id) %>%
+  summarise_all(funs(max))
+result
+finalOrdBookResp <- result[ which (result$logtargamt>0), ]
+finalOrdBookResp
+```
+
+
+#used cook's distance to remove 6 observations
+#baseline regression with all of the variables
+```{r}
+finalOrdBookResp <- finalOrdBookResp[-c(131,171,256),]
+finalOrdBookResp <- finalOrdBookResp[-c(57,68, 70),]
+baseline <- lm(logtargamt ~ recency + frequency + amount + tof + ordersPer + amountPer + qty + price + returned + oneMonth + threeMonth + sixMonth + oneYr + twoYr + pastTwo, data=finalOrdBookResp)
+summary(baseline)
+plot(baseline, which = 4)
+```
+
+#checking multicollinearity for baseline - nothing over 10
+```{r}
+library(car)
+vif(baseline)
+```
+
+#checking normality and heteroskedasticity - normality looks ok, heteroskedasticity eh
+```{r}
+plot(baseline)
+```
+
+# BASIC MODEL ON TOVA'S CLEANED DATA 
+#R sq is 0.3554     adj is  0.3409 
+#take out tof and Rsq is  0.3553  adj is  0.3433 
+#take out ordersPer and Rsq is 0.3501    adj is 0.3404 --- therefore keep ordersPer in model w Rsq of 0.3553
+```{r}
+try1 <- lm(logtargamt ~ recency + frequency + amount  + amountPer + ordersPer , data=finalOrdBookResp)
+summary(try1)
+plot(try1)
+```
+
+
+# WORKING BACKWARDS FROM THE "BASELINE" MODEL
+
+# full =  0.3782      adj = 0.3394 
+# rid of sixMonth = 0.3781  adj =  0.342 
+#rid of tof = 0.3781    adj =  0.3445 
+#rid of threeMonth = 0.378     adj=  0.3469 
+#rid of returned =  0.3777    adj =  0.3491 
+#rid of twoYr = 0.3773    adj =  0.3512 
+#rid of qty =  0.3765    adj = 0.3528 
+#rid of ordersPer  = 0.3754   adj= 0.3541 
+#rid of pastTwo = 0.3737    adj=0.3548 
+#rid of oneYr =  0.3721   adj = 0.3555 
+#rid of price =0.3686   adj = 0.3544   (adj WENT DOWN --> SHOULD INCLUDE PRICE THEN?   THEN RSQ IS 0.3721 IF WE KEEP PRICE IN MODEL)
+```{r}
+try2 <- lm(logtargamt ~ recency + frequency + amount  + amountPer + price   + oneMonth  + x, data=finalOrdBookResp)
+summary(try2)
+```
+
+## trying stepwise regression -- forward
+```{r}
+finalOrdBookResp.empty = lm(logtargamt ~ 1, finalOrdBookResp)
+summary(finalOrdBookResp.empty)
+step(finalOrdBookResp.empty, direction="forward", scope = 
+       ~  recency + frequency + amount + tof + ordersPer + amountPer + qty + price + returned + oneMonth + threeMonth + sixMonth + oneYr + twoYr + pastTwo + x)
+```
+
+
+
+#manipulation to test set
+```{r}
+book2 <- book
+book2<- book2[, -c(7:66)]
+book2
+book2$after <- ifelse(book$logtargamt > 0, 1, 0)
+book2$ordersPer <-  book2$frequency / book2$tof
+book2$amountPer <- book2$amount/ book2$tof
+mergedOrdersBookTEST <- merge(book2, orders1, by="id")
+```
+
+
+```{r}
+mergedOrdersBookTEST$orddate <- as.Date(mergedOrdersBookTEST$orddate , "%d-%B-%y")
+mergedOrdersBookTEST$dateDiff <- as.numeric(difftime(ndate1, mergedOrdersBookTEST$orddate), units="days")
+mergedOrdersBookTEST$oneMonth <- ifelse(mergedOrdersBookTEST$dateDiff < 31 , 1, 0)
+mergedOrdersBookTEST$threeMonth <- ifelse(mergedOrdersBookTEST$dateDiff < 63 & mergedOrdersBookTEST$dateDiff >31, 1, 0)
+mergedOrdersBookTEST$sixMonth <- ifelse(mergedOrdersBookTEST$dateDiff > 63 & mergedOrdersBookTEST$dateDiff <183 , 1, 0)
+mergedOrdersBookTEST$oneYr <- ifelse(mergedOrdersBookTEST$dateDiff > 182 & mergedOrdersBookTEST$dateDiff < 365 , 1, 0)
+mergedOrdersBookTEST$twoYr <- ifelse(mergedOrdersBookTEST$dateDiff > 365 & mergedOrdersBookTEST$dateDiff < 730 , 1, 0)
+mergedOrdersBookTEST$pastTwo <-  ifelse(mergedOrdersBookTEST$dateDiff > 730 , 1, 0)
+```
+
+
+```{r}
+df <- aggregate(mergedOrdersBookTEST$qty, by=list(id=mergedOrdersBookTEST$id), FUN=sum)
+mergedOrdersBookTEST <- merge(mergedOrdersBookTEST, df, by="id")
+result3 <- mergedOrdersBookTEST %>%
+  group_by(id) %>%
+  summarise_all(funs(max))
+result3
+finalOrdBookRespTEST <-  merge(result3, test, by="id")
+finalOrdBookRespTEST<- finalOrdBookRespTEST[ which (finalOrdBookRespTEST$logtargamt.y>0), ]
+finalOrdBookRespTEST
+```
+
+
+```{r}
+predictions<-predict(try2, newdata = finalOrdBookRespTEST, type = "response")
+```
+
+```{r}
+SSE_test1 = sum((as.numeric(finalOrdBookRespTEST$logtargamt.y) - predictions)^2); SSE_test1
+```
+
+
+
+### EXPLORATORY / EXTRA INFORMATION
+
+##Messing around with returned orders and categories
+```{r}
+returnedOrders <- orders1[which(orders1$returned==1),]
+returnedOrders99 <- returnedOrders[ which (returnedOrders$category == 99), ]
+returnedOrders14 <- returnedOrders[ which (returnedOrders$category == 14), ]
+returnedOrders5 <- returnedOrders[ which (returnedOrders$category == 5), ]
+returnedOrders99
+returnedOrders14
+returnedOrders5
+```
+
+
+## 12,563 of the 20,455 returned books are of category 99, 3,949 are of category 14
+##out of the 15,615 orders of category 99, 12,563 were returned 
+```{r}
+ordersNon99<- orders1[which(orders$category != 99), ]
+ordersNon9914<- ordersNon99[which(ordersNon99$category != 14),]
+ordersNon9914 <- ordersNon9914[which(ordersNon9914$price>0), ]
+```
+
+#identifying the returners and putting them into the train list -- haven't used this for anything yet
+```{r}
+ordersReturners <- orders1[which(orders1$returned==1), ]
+ordersReturners <- unique(ordersReturners$id)
+```
+
+
+
+```{r ref.label=knitr::all_labels(), echo = T, eval = F}
+```
