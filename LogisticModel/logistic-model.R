@@ -26,6 +26,6 @@ m <- (nrow(filter(train.rebalanced, respond == 1)) / nrow(train.rebalanced)) /
   (nrow(filter(train.full, respond == 1)) / nrow(train.full))
 
 # Train best logistic model (result of stepwise regression and iteration)
-log.best <- glm(formula = respond ~ avgNetOrder + sumQty + recency + frequency + 
-                  tof + amountPer + oneMonth + threeMonth + overYear, family = binomial, 
-                data = train.rebalanced)
+log.best <- glm(respond ~ avgNetOrder + sumQty + recency + frequency  + tof + 
+                  oneMonth + threeMonth + oneYear + sumQtyPerTof,
+                data = train.rebalanced, family = binomial)

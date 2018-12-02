@@ -7,7 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-source('./loader.R')
+getwd()
+source('../loader.R', local = T, chdir = T)
 ```
 
 ```{r}
@@ -19,7 +20,7 @@ train.logistic <- train.full %>%
   select(id, avgNetOrder, sumQty, logtargamt, sumQtyPerTof,
          recency, frequency, amount, tof, respond,
          oneMonth, threeMonth, sixMonth, oneYear, overYear, amountPer) %>%
-  filter(tof > 0)
+  filter(tof > 0, sumQty < 1000)
 logistic.1 = glm(respond ~ avgNetOrder + sumQty + recency + frequency + amount + tof, 
                     data = train.logistic, family = binomial)
 vif(logistic.1)
@@ -36,7 +37,14 @@ train.rebalanced <- train.logistic[sample(c(1:nrow(train.logistic)), replace = T
 length(which(train.rebalanced$respond == 1))
 ```
 
+Alternate oversample method:
 
+```{r}
+# train.logistic.res <- train.logistic[train.logistic$respond ==1,]
+# train.logistic.fold <- train.logistic.res[rep(seq(nrow(train.logistic.res)), 3),]
+# train.rebalanced <- rbind(train.logistic.fold,train.logistic)
+# length(which(train.rebalanced$respond == 1))
+```
 
 ```{r}
 logistic.2 <- glm(respond ~ avgNetOrder + sumQty + recency + 
@@ -52,6 +60,7 @@ summary(logistic.3)
 This model is great but a few more time-related variables will help
 
 Use stepwise to select a model that minimize AIC
+
 ```{r}
 logistic.all <- glm(respond ~ avgNetOrder + sumQty + recency + frequency  + tof + amount + amountPer +
                       oneMonth + threeMonth + sixMonth + oneYear + overYear + sumQtyPerTof,
@@ -62,8 +71,8 @@ step(logistic.all,scope =  ~ avgNetOrder + sumQty + recency + frequency  + tof +
 
 ```{r}
 log.best <- glm(formula = respond ~ avgNetOrder + sumQty + recency + frequency + 
-                  tof + amountPer + oneMonth + threeMonth + overYear, family = binomial, 
-                data = train.rebalanced)
+    tof + amountPer + oneMonth + threeMonth + sixMonth + overYear + 
+    sumQtyPerTof, family = binomial, data = train.rebalanced)
 summary(log.best)
 ```
 

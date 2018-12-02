@@ -56,7 +56,7 @@ We will narrow down the full test data to just the needed variables, while also 
 ```{r}
 predictions <- test.full %>%
   select(id, avgNetOrder, sumQty, recency, frequency, tof, amount,
-         amountPer, oneMonth, threeMonth, oneYear, overYear, sumQtyPerTof,
+         amountPer, oneMonth, threeMonth, sixMonth, oneYear, overYear, sumQtyPerTof,
          logtargamt) %>% filter(tof > 0, sumQty < 1000)
 ```
 
@@ -94,6 +94,7 @@ SSEP <- sum((predictions$predTargamt - predictions$targamt)^2); SSEP
 
 
 A separate measure of performance will evaluate the financial value in our model. This will be done by looking at the top 500 prospects as identified by predicted targamt (amount spent after promotion), and then examining how much these top prospects _actually_ spent following the promotion.
+
 ```{r}
 top500 <- predictions %>%
   arrange(-predTargamt) %>%
