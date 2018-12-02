@@ -56,7 +56,7 @@ We will narrow down the full test data to just the needed variables, while also 
 predictions <- test.full %>%
   select(avgNetOrder, sumQty, recency, frequency, tof, amount,
          amountPer, oneMonth, threeMonth, oneYear, sumQtyPerTof,
-         logtargamt) %>% filter(tof > 0, sumQty > 1000)
+         logtargamt) %>% filter(tof > 0, sumQty < 1000)
 ```
 
 The predictions given by the logistic regression are biased towards responders becuase the training data was oversampled to better balance responses. This bias will be corrected below
