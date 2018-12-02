@@ -11,10 +11,14 @@ source('./loader.R')
 ```
 
 ```{r}
+library(car)
+```
+
+```{r}
 train.logistic <- train.full %>% 
   select(id, avgNetOrder, sumQty, logtargamt, sumQtyPerTof,
          recency, frequency, amount, tof, respond,
-         oneMonth, threeMonth, sixMonth, oneYear, overYear) %>%
+         oneMonth, threeMonth, sixMonth, oneYear, overYear, amountPer) %>%
   filter(tof > 0)
 logistic.1 = glm(respond ~ avgNetOrder + sumQty + recency + frequency + amount + tof, 
                     data = train.logistic, family = binomial)
@@ -47,11 +51,19 @@ summary(logistic.3)
 
 This model is great but a few more time-related variables will help
 
+Use stepwise to select a model that minimize AIC
 ```{r}
-log.best <- glm(respond ~ avgNetOrder + sumQty + recency + frequency  + tof + 
-              oneMonth + threeMonth + oneYear + sumQtyPerTof,
-            data = train.rebalanced, family = binomial)
+logistic.all <- glm(respond ~ avgNetOrder + sumQty + recency + frequency  + tof + amount + amountPer +
+                      oneMonth + threeMonth + sixMonth + oneYear + overYear + sumQtyPerTof,
+                    data = train.rebalanced, family = binomial)
+step(logistic.all,scope =  ~ avgNetOrder + sumQty + recency + frequency  + tof + amount + amountPer +
+       oneMonth + threeMonth + sixMonth + oneYear + overYear + sumQtyPerTof, direction = "both")
+```
 
+```{r}
+log.best <- glm(formula = respond ~ avgNetOrder + sumQty + recency + frequency + 
+                  tof + amountPer + oneMonth + threeMonth + overYear, family = binomial, 
+                data = train.rebalanced)
 summary(log.best)
 ```
 
@@ -86,10 +98,17 @@ p1 <- exp(-log(m) + log(p2 / (1 - p2)))/(1 + exp(-log(m) + log(p2 / (1 - p2))))
 p1 now contains the predicted probability of responding to the offer after correcting for oversampling. These probabilities can be used to make "hard" classifications which will allow direct evaluation of the classifier.
 
 ```{r}
+library(pROC)
 classifications <- p1 > 0.1
 ground.truth <- test.full$logtargamt > 0
+
 conf.matrix <- table(classifications, ground.truth)
+conf.matrix
 pROC::plot.roc(test.full$logtargamt > 0, p1, xlab = "Spec", ylab = "Sens", print.auc = T)
+
+rocobj <- roc(test.full$logtargamt > 0 , p1)
+coords(rocobj, "best")
+
 p.star <- 0.5
 precision <- conf.matrix[2,2] / sum(conf.matrix[, 2]); precision
 recall <- conf.matrix[2,2] / sum(conf.matrix[2, ]); recall
