@@ -44,3 +44,44 @@ The mulitple linear regression was produced by several iterations of feature eng
 - amountPer
 - sumQty
 - oneMonth
+
+
+## Synthesis
+
+These two models will be brought together to form predictions on the expected amount purchased for customers in the test set.
+
+```{r}
+predictions <- test.full %>%
+  select(avgNetOrder, sumQty, recency, frequency, tof, amount,
+         amountPer, oneMonth, threeMonth, oneYear, sumQtyPerTof,
+         logtargamt) %>% filter(tof > 0)
+```
+
+The predictions given by the logistic regression are biased towards responders becuase the training data was oversampled to better balance responses. This bias will be corrected below
+
+```{r}
+p2 <- predict(log.best, newdata = predictions, type = 'response')
+m <- nrow(filter(train.rebalanced, respond == 1)) / nrow(train.rebalanced) / .0393
+p1 <- exp(-log(m) + log(p2 / (1 - p2)))/(1 + exp(-log(m) + log(p2 / (1 - p2))))
+
+predictions$probRespond <- p1
+```
+
+The multiple regression can now be applied to the set to predict the amount purchased. These predictions will be scaled by the customer's liklihood to respond to offer (as calculated by logistic regression).
+
+```{r}
+predictions$predLogtargamt <- predict(ml.best, newdata = predictions)
+predictions$scaledLogtargamt <- predictions$probRespond * predictions$predLogtargamt
+```
+
+The predicted logtargamts must now be transformed back to a normal, predicted amount in Euros by performing the inverse of the original log transformation ($ln(amt + 1)$)
+
+```{r}
+predictions$predTargamt <- exp(predictions$predLogtargamt) - 1
+predictions$targamt <- exp(predictions$logtargamt) - 1
+```
+
+```{r}
+SSEP <- sum((predictions$predTargamt - predictions$targamt)^2)
+```
+
