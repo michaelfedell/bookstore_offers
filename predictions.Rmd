@@ -28,9 +28,10 @@ The logisitc model was developed by fitting a binomial generalized linear model 
 - recency: no. of days since the last order
 - frequency: number of orders
 - tof: each customer's time on file
+- amountPer: total past purchase amount/time on file 
 - oneMonth: dummy variable- 1 if the customer placed order within one month prior to 08/01/2014
 - threeMonth: dummy variable- 1 if the customer placed order within three month prior to 08/01/2014
-- oneYear: dummy variable- 1 if the customer placed order within one year prior to 08/01/2014
+- overYear: dummy variable- 1 if the customer placed order over one year prior to 08/01/2014
 - sumQtyPerTof: frequnecy of placing orders
 
 

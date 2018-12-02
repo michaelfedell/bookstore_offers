@@ -1,0 +1,117 @@
+---
+title: "logistic-iteration"
+author: "Michael Fedell"
+date: "12/1/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source('./loader.R')
+```
+
+```{r}
+library(car)
+```
+
+```{r}
+train.logistic <- train.full %>% 
+  select(id, avgNetOrder, sumQty, logtargamt, sumQtyPerTof,
+         recency, frequency, amount, tof, respond,
+         oneMonth, threeMonth, sixMonth, oneYear, overYear, amountPer) %>%
+  filter(tof > 0)
+logistic.1 = glm(respond ~ avgNetOrder + sumQty + recency + frequency + amount + tof, 
+                    data = train.logistic, family = binomial)
+vif(logistic.1)
+# Remove outliers based on cooks distance
+train.logistic <- train.logistic %>% 
+  filter(cooks.distance(logistic.1) < qf(0.1,6,8218))
+
+# Balance training data by resampling
+prob1 <- ifelse(train.logistic$respond == 0,
+                0.85/(length(which(train.logistic$respond == 0))),
+                0.15/(length(which(train.logistic$respond == 1))))
+set.seed(123)
+train.rebalanced <- train.logistic[sample(c(1:nrow(train.logistic)), replace = TRUE, prob = prob1),]
+length(which(train.rebalanced$respond == 1))
+```
+
+
+
+```{r}
+logistic.2 <- glm(respond ~ avgNetOrder + sumQty + recency + 
+                    frequency + amount + tof,
+                  data = train.rebalanced, family = binomial)
+summary(logistic.2)
+
+logistic.3 = glm(respond ~ avgNetOrder + recency + frequency + tof,
+                 data = train.rebalanced, family = binomial)
+summary(logistic.3)
+```
+
+This model is great but a few more time-related variables will help
+
+Use stepwise to select a model that minimize AIC
+```{r}
+logistic.all <- glm(respond ~ avgNetOrder + sumQty + recency + frequency  + tof + amount + amountPer +
+                      oneMonth + threeMonth + sixMonth + oneYear + overYear + sumQtyPerTof,
+                    data = train.rebalanced, family = binomial)
+step(logistic.all,scope =  ~ avgNetOrder + sumQty + recency + frequency  + tof + amount + amountPer +
+       oneMonth + threeMonth + sixMonth + oneYear + overYear + sumQtyPerTof, direction = "both")
+```
+
+```{r}
+log.best <- glm(formula = respond ~ avgNetOrder + sumQty + recency + frequency + 
+                  tof + amountPer + oneMonth + threeMonth + overYear, family = binomial, 
+                data = train.rebalanced)
+summary(log.best)
+```
+
+All variables come out to be significant
+
+Now, check for multicollinearity using VIF values (should be < 10)
+
+```{r}
+vif(log.best)
+```
+
+No apparent mutlicollinearity problems
+
+Note: The fitted model is trained on ovesampled data and thus biased slightly towards successes (logtargamt > 0). This will need to be corrected for later when testing against the model's predictions.
+
+## Validation
+
+Raw predictions from model will be biased towards responders because of the oversampling step.
+This can be corrected for by the following formula
+$ln[p1 / (1 - p1)] = -ln(m)+ln[p2 / (1 - p2)]$
+=> $p1 = exp(-ln(m) + ln(p2 / (1 - p2)))/[1 + exp(-ln(m) + ln(p2 / (1 - p2)))]$
+Where $m$ is the number of folds to oversample data,  
+$p1$ is the probabilities for the raw data with no oversampling, and  
+$p2$ is the probabilities for oversampled data (model output)
+
+```{r}
+p2 <- predict(log.best, newdata = test.full, type = 'response')
+m <- nrow(filter(train.rebalanced, respond == 1)) / nrow(train.rebalanced) / .0393
+p1 <- exp(-log(m) + log(p2 / (1 - p2)))/(1 + exp(-log(m) + log(p2 / (1 - p2))))
+```
+
+p1 now contains the predicted probability of responding to the offer after correcting for oversampling. These probabilities can be used to make "hard" classifications which will allow direct evaluation of the classifier.
+
+```{r}
+library(pROC)
+classifications <- p1 > 0.1
+ground.truth <- test.full$logtargamt > 0
+
+conf.matrix <- table(classifications, ground.truth)
+conf.matrix
+pROC::plot.roc(test.full$logtargamt > 0, p1, xlab = "Spec", ylab = "Sens", print.auc = T)
+
+rocobj <- roc(test.full$logtargamt > 0 , p1)
+coords(rocobj, "best")
+
+p.star <- 0.5
+precision <- conf.matrix[2,2] / sum(conf.matrix[, 2]); precision
+recall <- conf.matrix[2,2] / sum(conf.matrix[2, ]); recall
+F1 <- (2 * precision * recall) / (precision + recall); F1
+```
+
