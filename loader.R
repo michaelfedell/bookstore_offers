@@ -44,6 +44,8 @@ book <- orders %>%
             overYear = max(overYear)) %>%
   merge(book, by = 'id', all.y = T)
 
+book$sumQtyPerTof <- book$sumQty / book$tof
+
 # Drop empty malformat column
 train$X <- NULL
 test$X <- NULL
