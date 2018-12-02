@@ -23,27 +23,27 @@ In summary: E(logtargamt) = P(logtargamt > 0) * E(logtargamt | logtargamt > 0)
 
 The logisitc model was developed by fitting a binomial generalized linear model to the test data set using a collection of predictors both natural and engineered. The predictors used in the final model are as follows:
 
-- avgNetOrder
-- sumQty
-- recency
-- frequency
-- tof
-- oneMonth
-- threeMonth
-- oneYear
-- sumQtyPerTof
+- avgNetOrder: average amount of money each customer ever spend
+- sumQty: The total quantity each customer ordered
+- recency: no. of days since the last order
+- frequency: number of orders
+- tof: each customer's time on file
+- oneMonth: dummy variable- 1 if the customer placed order within one month prior to 08/01/2014
+- threeMonth: dummy variable- 1 if the customer placed order within three month prior to 08/01/2014
+- oneYear: dummy variable- 1 if the customer placed order within one year prior to 08/01/2014
+- sumQtyPerTof: frequnecy of placing orders
 
 
 ## Multiple Regression
 
 The mulitple linear regression was produced by several iterations of feature engineering and model variation. Ultimately, a best model was obtained via stepwise regression allowed to move in both forward and backward directions. The final predictors used are as follows:
 
-- recency
-- frequency
-- amount
-- amountPer
-- sumQty
-- oneMonth
+- recency: no. of days since the last order
+- frequency: number of orders
+- amount:total past purchase amount in euros
+- amountPer: total past purchase amount/time on file 
+- sumQty: The total quantity each customer ordered
+- oneMonth: dummy variable- 1 if the customer placed order within one month prior to 08/01/2014
 
 
 ## Synthesis
