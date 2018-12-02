@@ -26,7 +26,7 @@ logistic.1 = glm(respond ~ avgNetOrder + sumQty + recency + frequency + amount +
 vif(logistic.1)
 # Remove outliers based on cooks distance
 train.logistic <- train.logistic %>% 
-  filter(cooks.distance(logistic.1) < qf(0.1,7,8217))
+  filter(cooks.distance(logistic.1) < qf(0.1,6,8218))
 
 # Balance training data by resampling
 prob1 <- ifelse(train.logistic$respond == 0,
