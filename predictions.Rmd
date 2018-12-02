@@ -1,0 +1,46 @@
+---
+title: "predictions"
+author: "Michael Fedell"
+date: "12/1/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source('./LinearModel/linear-model.R', chdir = T)
+source('./LogisticModel/logistic-model.R', chdir = T)
+```
+
+# Model Results
+
+The logistic regression and mulitple linear regression models willbe combined together to come up with a predicted response for each customer in the test set.
+
+This will be done by first predicting the customer's liklihood to respond to the promotion via the logistic regression model. After determining response liklihood, the mulitple linear regression will be applied to predict how _much_ a customer will purchase after the promotion.
+
+In summary: E(logtargamt) = P(logtargamt > 0) * E(logtargamt | logtargamt > 0)
+
+## Logistic Regression
+
+The logisitc model was developed by fitting a binomial generalized linear model to the test data set using a collection of predictors both natural and engineered. The predictors used in the final model are as follows:
+
+- avgNetOrder
+- sumQty
+- recency
+- frequency
+- tof
+- oneMonth
+- threeMonth
+- oneYear
+- sumQtyPerTof
+
+
+## Multiple Regression
+
+The mulitple linear regression was produced by several iterations of feature engineering and model variation. Ultimately, a best model was obtained via stepwise regression allowed to move in both forward and backward directions. The final predictors used are as follows:
+
+- recency
+- frequency
+- amount
+- amountPer
+- sumQty
+- oneMonth

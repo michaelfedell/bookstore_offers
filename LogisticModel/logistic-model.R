@@ -6,5 +6,5 @@ train.logistic <- train.full %>%
   filter(tof > 0)
 
 log.best <- glm(respond ~ avgNetOrder + sumQty + recency + frequency  + tof + 
-              oneMonth + threeMonth + oneYear + sumQtyPerTof,
-            data = train.rebalanced, family = binomial)
+                  oneMonth + threeMonth + oneYear + sumQtyPerTof,
+                data = train.rebalanced, family = binomial)
