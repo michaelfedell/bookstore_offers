@@ -50,11 +50,13 @@ The mulitple linear regression was produced by several iterations of feature eng
 
 These two models will be brought together to form predictions on the expected amount purchased for customers in the test set.
 
+We will narrow down the full test data to just the needed variables, while also filtering out several of the significant outliers (with more than 1000 orders)
+
 ```{r}
 predictions <- test.full %>%
   select(avgNetOrder, sumQty, recency, frequency, tof, amount,
          amountPer, oneMonth, threeMonth, oneYear, sumQtyPerTof,
-         logtargamt) %>% filter(tof > 0)
+         logtargamt) %>% filter(tof > 0, sumQty > 1000)
 ```
 
 The predictions given by the logistic regression are biased towards responders becuase the training data was oversampled to better balance responses. This bias will be corrected below
@@ -77,11 +79,11 @@ predictions$scaledLogtargamt <- predictions$probRespond * predictions$predLogtar
 The predicted logtargamts must now be transformed back to a normal, predicted amount in Euros by performing the inverse of the original log transformation ($ln(amt + 1)$)
 
 ```{r}
-predictions$predTargamt <- exp(predictions$predLogtargamt) - 1
+predictions$predTargamt <- exp(predictions$scaledLogtargamt) - 1
 predictions$targamt <- exp(predictions$logtargamt) - 1
 ```
 
 ```{r}
-SSEP <- sum((predictions$predTargamt - predictions$targamt)^2)
+SSEP <- sum((predictions$predTargamt - predictions$targamt)^2); SSEP
 ```
 
