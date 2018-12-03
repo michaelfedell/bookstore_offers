@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
 source('./LinearModel/linear-model.R', chdir = T)
 source('./LogisticModel/logistic-model.R', chdir = T)
 ```
@@ -135,6 +136,7 @@ percentPayoff <- payoff / sum(actual.top.500$targamt); percentPayoff
 Now we can examine the optimal number of customers to target for the promotion by looking at the short term profit margins. If the profit margin is 25% of the `targamt` spent, and cost of marketing to a customer is 1 euro, then we will maximize total profit for marketing to the top `x` customers ordered by `predTargamt`.
 
 We will do this by ordering the customers by descending predicted targamt and then calculating the cumulative profit where $profit = 0.25 * targamt - 1$
+
 ```{r}
 predictions$profit <- predictions$targamt * 0.25 - 1
 optProfit <- max(cumsum(arrange(predictions, -predTargamt)$profit)); optProfit
@@ -153,6 +155,6 @@ list('SSEP' = SSEP,
      'Payoff' = payoff,
      'Percent Payoff' = percentPayoff,
      'Optimal Profit' = optProfit,
-     'Optiumum Target Customers' = optCustomers)
+     'Optimal Target Customers' = optCustomers)
 ```
 

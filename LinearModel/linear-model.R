@@ -15,5 +15,5 @@ train.responders <- train.responders %>%
   filter(cooks.distance(ml.baseline) < qf(0.1, p + 1, nrow(train.responders) - p + 1))
 
 # Train best multiple regression model (result of stepwise regression and iteration)
-ml.best <- lm(formula = logtargamt ~ recency + frequency + amount + amountPer + 
-             sumQty + oneMonth, data = train.responders)
+ml.best <- lm(formula = logtargamt ~ frequency + amount + amountPer + sumQty,
+              data = train.responders)
