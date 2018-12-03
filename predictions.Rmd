@@ -8,6 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
+getwd()
 source('./LinearModel/linear-model.R', chdir = T)
 source('./LogisticModel/logistic-model.R', chdir = T)
 ```
@@ -77,6 +78,7 @@ The multiple regression can now be applied to the set to predict the amount purc
 
 ```{r}
 predictions$predLogtargamt <- predict(ml.best, newdata = predictions)
+summary(predictions$predLogtargamt)
 ```
 
 Lastly, we need to include the new customers in the test set. These customers do not have any data on file and thus we will not be able to form sensible predictions for their response. Instead, we will keep use the average values for new customers: 52.9% likely to respond and spending an average logtargamt of 1.753316
@@ -98,6 +100,7 @@ Now that the predictions for all customers are in place, they can be combined to
 
 ```{r}
 predictions$scaledLogtargamt <- predictions$probRespond * predictions$predLogtargamt
+summary(predictions$scaledLogtargamt)
 ```
 
 
@@ -139,14 +142,26 @@ We will do this by ordering the customers by descending predicted targamt and th
 
 ```{r}
 predictions$profit <- predictions$targamt * 0.25 - 1
-optProfit <- max(cumsum(arrange(predictions, -predTargamt)$profit)); optProfit
+opt.profit <- max(cumsum(arrange(predictions, -predTargamt)$profit)); opt.profit
 ```
 
 This profit is obtained by marketing to the top x customers where x is calculated below
 
 ```{r}
-optCustomers <- which.max(cumsum(arrange(predictions, -predTargamt)$profit)); optCustomers
+opt.customers <- which.max(cumsum(arrange(predictions, -predTargamt)$profit)); opt.customers
 ```
+
+This new optimal marketing strategy will be used to calculate a new payoff and percent payoff
+```{r}
+top.prospects <- predictions %>%
+  arrange(-predTargamt) %>%
+  head(opt.customers)
+
+opt.payoff <- sum(top.prospects$targamt); opt.payoff
+actual.opt.prospects <- predictions %>% arrange(-targamt) %>% head(opt.customers)
+opt.percentPayoff <- opt.payoff / sum(actual.opt.prospects$targamt); opt.percentPayoff
+```
+
 
 In summary:
 
@@ -154,7 +169,9 @@ In summary:
 list('SSEP' = SSEP, 
      'Payoff' = payoff,
      'Percent Payoff' = percentPayoff,
-     'Optimal Profit' = optProfit,
-     'Optimal Target Customers' = optCustomers)
+     'Optimal Profit' = opt.profit,
+     'Optimal Target Customers' = opt.customers,
+     'Optimal Payoff' = opt.payoff,
+     'Optimal Percent Payoff' = opt.percentPayoff)
 ```
 
