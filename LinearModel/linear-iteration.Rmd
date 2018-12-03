@@ -109,8 +109,8 @@ step(ml.baseline, direction = "both")
 ```
 
 ```{r}
-ml.best <- lm(formula = logtargamt ~ frequency + amount + amountPer + 
-             sumQty + oneMonth, data = train.responders)
+ml.best <- lm(formula = logtargamt ~ frequency + amountPer + sumQty + maxPrice + oneMonth,
+              data = train.responders)
 summary(ml.best)
 ```
 
