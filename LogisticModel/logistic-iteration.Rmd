@@ -1,84 +1,75 @@
 ---
-title: "logistic-iteration"
-author: "Michael Fedell"
-date: "12/1/2018"
+title: "logistic_newest"
+author: "Eileen Zhang"
+date: "12/2/2018"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-getwd()
 source('../loader.R', local = T, chdir = T)
-```
-
-```{r}
 library(car)
 ```
+
 
 ```{r}
 train.logistic <- train.full %>% 
   select(id, avgNetOrder, sumQty, logtargamt, sumQtyPerTof,
-         recency, frequency, amount, tof, respond,
-         oneMonth, threeMonth, sixMonth, oneYear, overYear, amountPer) %>%
-  filter(tof > 0, sumQty < 1000)
-logistic.1 = glm(respond ~ avgNetOrder + sumQty + recency + frequency + amount + tof, 
-                    data = train.logistic, family = binomial)
-vif(logistic.1)
-# Remove outliers based on cooks distance
-train.logistic <- train.logistic %>% 
-  filter(cooks.distance(logistic.1) < qf(0.1,6,8218))
+         recency, frequency, amount, tof, respond, returned,
+         oneMonth, threeMonth, sixMonth, oneYear, overYear, amountPer, maxNet) %>%
+  filter(tof > 0)
 
-# Balance training data by resampling
-prob1 <- ifelse(train.logistic$respond == 0,
-                0.85/(length(which(train.logistic$respond == 0))),
-                0.15/(length(which(train.logistic$respond == 1))))
-set.seed(123)
-train.rebalanced <- train.logistic[sample(c(1:nrow(train.logistic)), replace = TRUE, prob = prob1),]
+# oversample responders by replicating observations three times
+train.logistic.res <- train.logistic[train.logistic$respond ==1,]
+train.logistic.fold <- train.logistic.res[rep(seq(nrow(train.logistic.res)), 3),]
+train.rebalanced <- rbind(train.logistic.fold,train.logistic)
 length(which(train.rebalanced$respond == 1))
-```
 
-Alternate oversample method:
-
-```{r}
-# train.logistic.res <- train.logistic[train.logistic$respond ==1,]
-# train.logistic.fold <- train.logistic.res[rep(seq(nrow(train.logistic.res)), 3),]
-# train.rebalanced <- rbind(train.logistic.fold,train.logistic)
-# length(which(train.rebalanced$respond == 1))
-```
-
-```{r}
-logistic.2 <- glm(respond ~ avgNetOrder + sumQty + recency + 
-                    frequency + amount + tof,
-                  data = train.rebalanced, family = binomial)
-summary(logistic.2)
-
-logistic.3 = glm(respond ~ avgNetOrder + recency + frequency + tof,
-                 data = train.rebalanced, family = binomial)
-summary(logistic.3)
-```
-
-This model is great but a few more time-related variables will help
-
-Use stepwise to select a model that minimize AIC
-
-```{r}
+#fit a baseline model using all predictors
 logistic.all <- glm(respond ~ avgNetOrder + sumQty + recency + frequency  + tof + amount + amountPer +
-                      oneMonth + threeMonth + sixMonth + oneYear + overYear + sumQtyPerTof,
+                      oneMonth + threeMonth + sixMonth + oneYear + overYear + sumQtyPerTof + returned + maxNet,
                     data = train.rebalanced, family = binomial)
-step(logistic.all,scope =  ~ avgNetOrder + sumQty + recency + frequency  + tof + amount + amountPer +
-       oneMonth + threeMonth + sixMonth + oneYear + overYear + sumQtyPerTof, direction = "both")
+
+#Remove outliers based on cooks distance
+train.rebalanced <- train.rebalanced %>% 
+  filter(cooks.distance(logistic.all) < qf(0.1,15,9049))
+
+#check multicollinearity
+vif(logistic.all)
+```
+
+removed sumQty since vif > 10
+
+```{r}
+logistic.1 = glm(respond ~ avgNetOrder + recency + frequency  + tof + amount + 
+                   amountPer + oneMonth + threeMonth + sixMonth + oneYear + 
+                   overYear + sumQtyPerTof + returned + maxNet,
+                    data = train.rebalanced, family = binomial)
+
+step(logistic.1, scope = ~ avgNetOrder + recency + frequency  + tof + amount + 
+       amountPer + oneMonth + threeMonth + sixMonth + oneYear + overYear + 
+       sumQtyPerTof + returned + maxNet,
+     direction = "both")
 ```
 
 ```{r}
-log.best <- glm(formula = respond ~ avgNetOrder + sumQty + recency + frequency + 
-    tof + amountPer + oneMonth + threeMonth + sixMonth + overYear + 
-    sumQtyPerTof, family = binomial, data = train.rebalanced)
+# stepwise selected
+logistic.2 = glm(respond ~ recency + frequency  + tof + amount + amountPer +
+                      oneMonth + threeMonth + sixMonth + overYear + sumQtyPerTof + maxNet,
+                    data = train.rebalanced, family = binomial)
+summary(logistic.2)
+```
+```{r}
+#remove amountPer and sixMonth
+log.best = glm(respond ~ recency + frequency  + tof + amount +
+                      oneMonth + threeMonth + overYear + maxNet + sumQtyPerTof,
+                    data = train.rebalanced, family = binomial)
 summary(log.best)
 ```
 
-All variables come out to be significant
+Looks like all predictors are now significant
 
-Now, check for multicollinearity using VIF values (should be < 10)
+Check the new VIF values for multicollinearity
 
 ```{r}
 vif(log.best)
@@ -100,8 +91,9 @@ $p2$ is the probabilities for oversampled data (model output)
 
 ```{r}
 p2 <- predict(log.best, newdata = test.full, type = 'response')
-m <- nrow(filter(train.rebalanced, respond == 1)) / nrow(train.rebalanced) / .0393
-p1 <- exp(-log(m) + log(p2 / (1 - p2)))/(1 + exp(-log(m) + log(p2 / (1 - p2))))
+m <- (nrow(filter(train.rebalanced, respond == 1)) / nrow(train.rebalanced)) / 
+  (nrow(filter(train.logistic, respond == 1)) / nrow(train.logistic))
+p1 <- exp(-log(4) + log(p2 / (1 - p2)))/(1 + exp(-log(4) + log(p2 / (1 - p2))))
 ```
 
 p1 now contains the predicted probability of responding to the offer after correcting for oversampling. These probabilities can be used to make "hard" classifications which will allow direct evaluation of the classifier.
@@ -123,4 +115,3 @@ precision <- conf.matrix[2,2] / sum(conf.matrix[, 2]); precision
 recall <- conf.matrix[2,2] / sum(conf.matrix[2, ]); recall
 F1 <- (2 * precision * recall) / (precision + recall); F1
 ```
-
