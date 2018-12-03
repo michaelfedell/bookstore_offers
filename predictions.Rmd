@@ -57,7 +57,7 @@ We will narrow down the full test data to just the needed variables, while also 
 predictions <- test.full %>%
   select(id, avgNetOrder, sumQty, recency, frequency, tof, amount,
          amountPer, oneMonth, threeMonth, sixMonth, oneYear, overYear, sumQtyPerTof,
-         logtargamt) %>% filter(tof > 0, sumQty < 1000)
+         logtargamt) %>% filter(tof > 0, sumQty < 1000, amountPer < 15)
 ```
 
 The predictions given by the logistic regression are biased towards responders becuase the training data was oversampled to better balance responses. This bias will be corrected below
@@ -72,13 +72,33 @@ predictions$probRespond <- p1
 summary(predictions$probRespond)
 ```
 
-The multiple regression can now be applied to the set to predict the amount purchased. These predictions will be scaled by the customer's liklihood to respond to offer (as calculated by logistic regression).
+The multiple regression can now be applied to the set to predict the amount purchased.
 
 ```{r}
 predictions$predLogtargamt <- predict(ml.best, newdata = predictions)
-predictions$scaledLogtargamt <- predictions$probRespond * predictions$predLogtargamt
-summary(predictions$scaledLogtargamt)
 ```
+
+Lastly, we need to include the new customers in the test set. These customers do not have any data on file and thus we will not be able to form sensible predictions for their response. Instead, we will keep use the average values for new customers: 52.9% likely to respond and spending an average logtargamt of 1.753316
+
+```{r}
+newCustomers <- test.full %>%
+  select(id, avgNetOrder, sumQty, recency, frequency, tof, amount,
+         amountPer, oneMonth, threeMonth, sixMonth, oneYear, overYear, sumQtyPerTof,
+         logtargamt) %>% filter(tof == 0)
+new.avg.response.rate <- nrow(filter(train.full, tof == 0, logtargamt > 0)) / 
+  nrow(filter(train.full, tof == 0))
+new.avg.logtargamt <- mean(filter(train.full, tof == 0)$logtargamt)
+newCustomers$probRespond <- new.avg.response.rate
+newCustomers$predLogtargamt <- new.avg.logtargamt
+predictions <- rbind(predictions, newCustomers)
+```
+
+Now that the predictions for all customers are in place, they can be combined to yield an overall expected logtargamt based on liklihood to respond and predicted logtargamt.
+
+```{r}
+predictions$scaledLogtargamt <- predictions$probRespond * predictions$predLogtargamt
+```
+
 
 The predicted logtargamts must now be transformed back to a normal, predicted amount in euros by performing the inverse of the original log transformation ($ln(amt + 1)$)
 
@@ -90,6 +110,12 @@ summary(predictions$predTargamt)
 
 ```{r}
 SSEP <- sum((predictions$predTargamt - predictions$targamt)^2); SSEP
+```
+
+To help find significant error contributors, we can look at the Sq. Error term for each prediction
+
+```{r}
+bad.apples <- predictions %>% mutate(sq.error = (predTargamt - targamt) ^ 2) %>% arrange(-sq.error) %>% head(15)
 ```
 
 
@@ -111,13 +137,22 @@ Now we can examine the optimal number of customers to target for the promotion b
 We will do this by ordering the customers by descending predicted targamt and then calculating the cumulative profit where $profit = 0.25 * targamt - 1$
 ```{r}
 predictions$profit <- predictions$targamt * 0.25 - 1
-max(cumsum(arrange(predictions, -predTargamt)$profit))
+optProfit <- max(cumsum(arrange(predictions, -predTargamt)$profit)); optProfit
 ```
 
 This profit is obtained by marketing to the top x customers where x is calculated below
 
 ```{r}
-which.max(cumsum(arrange(predictions, -predTargamt)$profit))
+optCustomers <- which.max(cumsum(arrange(predictions, -predTargamt)$profit)); optCustomers
 ```
 
+In summary:
+
+```{r}
+list('SSEP' = SSEP, 
+     'Payoff' = payoff,
+     'Percent Payoff' = percentPayoff,
+     'Optimal Profit' = optProfit,
+     'Optiumum Target Customers' = optCustomers)
+```
 

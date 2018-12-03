@@ -17,17 +17,17 @@ book <- book %>% mutate(
 orders$orddate <- lubridate::dmy(orders$orddate)
 orders$net <- orders$qty * orders$price
 orders <- orders %>% mutate(returned = ifelse(price == 0, 1, 0))
+orders <- orders  %>% filter(qty < 1000)
 
 # Add date buckets to orders
 startDate <- as.Date('01-Aug-14', '%d-%B-%y')
-orders <- orders %>% mutate(
-  dateDiff = difftime(startDate, orddate),
-  oneMonth = ifelse(dateDiff < 31, 1, 0),
-  threeMonth = ifelse((dateDiff < 63) & (dateDiff > 31), 1, 0),
-  sixMonth = ifelse((dateDiff < 183) & (dateDiff > 63), 1, 0),
-  oneYear = ifelse(dateDiff < 365 & dateDiff > 183, 1, 0),
-  overYear = ifelse(dateDiff > 365, 1, 0)
-)
+orders <- orders %>% 
+  mutate(dateDiff = difftime(startDate, orddate),
+         oneMonth = ifelse(dateDiff < 31, 1, 0),
+         threeMonth = ifelse((dateDiff < 63) & (dateDiff > 31), 1, 0),
+         sixMonth = ifelse((dateDiff < 183) & (dateDiff > 63), 1, 0),
+         oneYear = ifelse(dateDiff < 365 & dateDiff > 183, 1, 0),
+         overYear = ifelse(dateDiff > 365, 1, 0))
 
 # Add avgNetOrder feature
 book <- orders %>% 
@@ -44,7 +44,18 @@ book <- orders %>%
             overYear = max(overYear)) %>%
   merge(book, by = 'id', all.y = T)
 
+# Add new interaction term for aggregate sumQty books ordered and total time on file
 book$sumQtyPerTof <- book$sumQty / book$tof
+
+# recalculate the amount column for customers after removing the orders of qty > 1000
+book <- orders %>%
+  group_by(id) %>%
+  summarise(new.amount = sum(net)) %>%
+  select(id, new.amount) %>%
+  merge(book, all.y = T)
+book$new.amount[is.na(book$new.amount)] <- 0
+book$amount <- book$new.amount
+book$new.amount <- NULL
 
 # Drop empty malformat column
 train$X <- NULL
