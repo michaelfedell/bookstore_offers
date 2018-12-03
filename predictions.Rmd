@@ -57,7 +57,7 @@ We will narrow down the full test data to just the needed variables, while also 
 
 ```{r}
 predictions <- test.full %>%
-  select(id, avgNetOrder, sumQty, recency, frequency, tof, amount, maxNet,
+  select(id, avgNetOrder, sumQty, recency, frequency, tof, amount, maxNet, maxPrice,
          amountPer, oneMonth, threeMonth, sixMonth, oneYear, overYear, sumQtyPerTof,
          logtargamt) %>% filter(tof > 0, sumQty < 1000, amountPer < 15)
 ```
@@ -85,7 +85,7 @@ Lastly, we need to include the new customers in the test set. These customers do
 
 ```{r}
 newCustomers <- test.full %>%
-  select(id, avgNetOrder, sumQty, recency, frequency, tof, amount, maxNet,
+  select(id, avgNetOrder, sumQty, recency, frequency, tof, amount, maxNet, maxPrice,
          amountPer, oneMonth, threeMonth, sixMonth, oneYear, overYear, sumQtyPerTof,
          logtargamt) %>% filter(tof == 0)
 new.avg.response.rate <- nrow(filter(train.full, tof == 0, logtargamt > 0)) / 

@@ -89,8 +89,14 @@ summary(best2)
 
 
 ```{r}
-train.responders <- train.full %>% filter(respond == 1, tof > 0)
-train.responders <- train.responders[-c(55, 65, 68, 70, 131, 171, 256), ]
+train.responders <- train.full %>% filter(logtargamt > 0, tof > 0)
+ml.baseline <- lm(logtargamt ~ recency + frequency + amount + tof + 
+                 ordersPer + amountPer + sumQty + maxPrice + returned + 
+                 oneMonth + threeMonth + sixMonth + oneYear + overYear, 
+               data=train.responders)
+p <- length(ml.baseline$coefficients)
+train.responders <- train.responders %>% 
+  filter(cooks.distance(ml.baseline) < qf(0.1, p + 1, nrow(train.responders) - p + 1))
 ml.baseline <- lm(logtargamt ~ recency + frequency + amount + tof + 
                  ordersPer + amountPer + sumQty + maxPrice + returned + 
                  oneMonth + threeMonth + sixMonth + oneYear + overYear, 
@@ -99,10 +105,13 @@ ml.baseline <- lm(logtargamt ~ recency + frequency + amount + tof +
 
 
 ```{r}
-# step(ml.baseline, direction = "both")
-ml.best <- lm(formula = logtargamt ~ recency + frequency + amount + amountPer + 
-             sumQty + oneMonth, data = train.responders)
+step(ml.baseline, direction = "both")
+```
 
+```{r}
+ml.best <- lm(formula = logtargamt ~ frequency + amount + amountPer + 
+             sumQty + oneMonth, data = train.responders)
+summary(ml.best)
 ```
 
 
