@@ -103,7 +103,7 @@ library(pROC)
 classifications <- p1 > 0.1
 ground.truth <- test.full$logtargamt > 0
 
-conf.matrix <- table(classifications, ground.truth)
+conf.matrix <- t(table(classifications, ground.truth))
 conf.matrix
 pROC::plot.roc(test.full$logtargamt > 0, p1, xlab = "Spec", ylab = "Sens", print.auc = T)
 
