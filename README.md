@@ -9,17 +9,18 @@ The requirements of this project are further explained in the [attached PDF](pro
 
 ## Executive Summary
 
-## Report
+This paper discusses the strategy, methodology, and results of predicting customer
+behavior in response to a promotional offer from an online bookseller. The most
+important predictors for customer response likelihood relate to order date history,
+frequency and recency of purchases, total amount spent, how long they’ve been
+customers, and the amount spent on their largest order. When predicting amount of
+sales, the key predictors are frequency of orders, maximum price spent on an order,
+amount per order, total products purchased, and whether the customer purchased in
+the past month.  The final models can be used to drive a marketing strategy which
+will optimize short-term profit at a total payoff of €11850.89, or 34.2% of the
+maximum payoff for the top 1516 responders.
 
-### Preliminary Insights
-
-### Challenges
-
-### Results
-
-### Validation
-
-### Conclusion
+---
 
 ## Collaborators
 
